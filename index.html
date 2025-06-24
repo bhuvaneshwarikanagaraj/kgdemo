@@ -9,191 +9,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Special+Elite&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
     
-    <!-- LogRocket initialization -->
-    <script src="https://cdn.lr-ingest.com/LogRocket.min.js"></script>
-    <script>
-        window.LogRocket && window.LogRocket.init('hit1rk/word360');
-        
-        // Track episode page view
-        LogRocket.track('Soccer Paw Episode 1 View');
-        
-        // Identify user if needed
-        LogRocket.identify('USER_ID', {
-            name: 'Soccer Paw Player',
-            gameProgress: 'soccer_paw_episode1'
-        });
-    </script>
-    
-    <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
-
-    <!-- Initialize Firebase -->
-    <script>
-        // Initialize Firebase and Firestore
-        let db;
-        let auth;
-        try {
-            const firebaseConfig = {
-                apiKey: "AIzaSyDO7cACg6BNA8KiYvMhoxonDxCSKBTgwiE",
-                authDomain: "yevvolearn.firebaseapp.com",
-                projectId: "yevvolearn",
-                storageBucket: "yevvolearn.firebasestorage.app",
-                messagingSenderId: "114822749369",
-                appId: "1:114822749369:web:599d567dd36e3ce7870f68",
-                measurementId: "G-9V2E5C1M9V"
-            };
-
-            // Initialize Firebase if not already initialized
-            if (!firebase.apps.length) {
-                firebase.initializeApp(firebaseConfig);
-            }
-            db = firebase.firestore();
-            auth = firebase.auth();
-            console.log('Firebase initialized successfully');
-
-            // Function to check authentication
-            async function checkAuthentication() {
-                console.log('Starting authentication check...');
-                
-                // First check localStorage for custom auth data
-                const authName = localStorage.getItem('auth_name');
-                const authPhone = localStorage.getItem('auth_phone');
-                const isLoggedIn = localStorage.getItem('auth_isLoggedIn');
-                const authUserId = localStorage.getItem('auth_userId');
-                
-                console.log('localStorage auth check:', { 
-                    authName, 
-                    authPhone, 
-                    isLoggedIn,
-                    authUserId 
-                });
-                
-                if (authName && authPhone && isLoggedIn === 'true') {
-                    console.log('Authentication successful via localStorage');
-                    
-                    // If we have a userId, verify in Firestore
-                    if (authUserId) {
-                        try {
-                            // Try to find the user in the userProgress collection
-                            const userDoc = await db.collection('userProgress').doc(authUserId).get();
-                            if (userDoc.exists) {
-                                console.log('User verified in Firestore userProgress collection');
-                                return true;
-                            }
-                            
-                            // Fallback to query by phone number
-                            const userQuery = await db.collection('userProgress')
-                                .where('phone', '==', authPhone)
-                                .limit(1)
-                                .get();
-                                
-                            if (!userQuery.empty) {
-                                console.log('User verified in Firestore by phone number');
-                                return true;
-                            }
-                        } catch (error) {
-                            console.error('Error verifying user in Firestore:', error);
-                        }
-                    }
-                    
-                    // Even without Firestore verification, still consider authenticated if we have name and phone
-                    console.log('User authenticated via localStorage without Firestore verification');
-                    return true;
-                }
-                
-                // Then check session storage
-                const userDataStr = sessionStorage.getItem('userData');
-                console.log('Session storage data:', userDataStr);
-                
-                if (userDataStr) {
-                    try {
-                        const userData = JSON.parse(userDataStr);
-                        console.log('Parsed user data:', { ...userData, password: '[REDACTED]' });
-                        
-                        // Store in localStorage for future use if we have basic user data
-                        if (userData.name && userData.phone) {
-                            localStorage.setItem('auth_name', userData.name);
-                            localStorage.setItem('auth_phone', userData.phone);
-                            localStorage.setItem('auth_isLoggedIn', 'true');
-                            
-                            if (userData.uid) {
-                                localStorage.setItem('auth_userId', userData.uid);
-                            }
-                            
-                            console.log('Copied session auth data to localStorage');
-                            return true;
-                        }
-                        
-                        // Verify user exists in Firestore
-                        if (userData.uid) {
-                        const userDoc = await db.collection('users').doc(userData.uid).get();
-                        console.log('Firestore user check:', userDoc.exists ? 'User found' : 'User not found');
-                        
-                        if (userDoc.exists) {
-                            console.log('Authentication successful via session storage');
-                            return true;
-                            }
-                            
-                            // Try userProgress collection as well
-                            const progressDoc = await db.collection('userProgress').doc(userData.uid).get();
-                            if (progressDoc.exists) {
-                                console.log('User found in userProgress collection');
-                                return true;
-                            }
-                        }
-                    } catch (error) {
-                        console.error('Error checking session storage:', error);
-                    }
-                }
-
-                // If all else fails, try Firebase auth
-                return new Promise((resolve) => {
-                    const unsubscribe = auth.onAuthStateChanged((user) => {
-                        console.log('Firebase auth state:', user ? 'User logged in' : 'No user');
-                        unsubscribe();
-                        
-                        if (user) {
-                            // Store Firebase user in localStorage for future use
-                            localStorage.setItem('auth_userId', user.uid);
-                            localStorage.setItem('auth_isLoggedIn', 'true');
-                            if (user.email) {
-                                localStorage.setItem('auth_email', user.email);
-                            }
-                            resolve(true);
-                        } else {
-                            resolve(false);
-                        }
-                    });
-                });
-            }
-
-            // Check authentication and handle redirect
-            async function handleAuth() {
-                console.log('Handling authentication...');
-                const isAuthenticated = await checkAuthentication();
-                console.log('Authentication result:', isAuthenticated);
-                
-                if (!isAuthenticated) {
-                    console.log('User not authenticated, redirecting to login...');
-                    window.location.href = '../index.html';
-                } else {
-                    console.log('User authenticated, proceeding to page...');
-                }
-            }
-
-            // Run authentication check when page loads
-            document.addEventListener('DOMContentLoaded', () => {
-                console.log('Page loaded, checking authentication...');
-                handleAuth();
-            });
-
-        } catch (error) {
-            console.error('Firebase initialization error:', error);
-        }
-    </script>
-    
     <style>
         * {
             margin: 0;
@@ -982,7 +797,7 @@
     </div>
 
     <script>
-        // Add this function at the top level, outside DOMContentLoaded
+        // Remove all backend and authentication code. Only keep frontend logic.
         function goToStateOfArt() {
             localStorage.setItem('targetPanel', '14');
             window.location.href = 'stateoftheart.html';
@@ -1485,172 +1300,43 @@
             // Initialize audio
             createAudioElements();
             handleBackgroundAudio([]);
-        });
 
-        // Add this function to check if feedback already exists
-        async function checkIfFeedbackExists() {
-            const phone = localStorage.getItem('auth_phone');
-            if (!phone) return false;
-            const db = firebase.firestore();
-            const userQuery = await db.collection('userProgress')
-                .where('phone', '==', phone)
-                .limit(1)
-                .get();
-            if (!userQuery.empty) {
-                const userDoc = userQuery.docs[0];
-                const userData = userDoc.data();
-                return !!userData.soccer_episode1Feedback;
-            }
-            return false;
-        }
+            // Feedback logic: store feedback locally only
+            window.submitFeedback = function(rating) {
+                // Save feedback in localStorage
+                localStorage.setItem('soccer_episode1Feedback', rating);
+                showFeedbackUI();
+            };
 
-        // On DOMContentLoaded, check if feedback exists and update UI accordingly
-        document.addEventListener('DOMContentLoaded', async () => {
-            checkIfFeedbackExists().then((exists) => {
-                if (exists) {
-                    // Hide feedback form, show thank you and navigation
-                    document.querySelector('.emoji-options').style.display = 'none';
-                    document.getElementById('thankYouMessage').style.display = 'flex';
-                    const successMessage = document.getElementById('successMessage');
-                    successMessage.style.display = 'block';
+            function showFeedbackUI() {
+                document.querySelector('.emoji-options').style.display = 'none';
+                document.getElementById('thankYouMessage').style.display = 'flex';
+                const successMessage = document.getElementById('successMessage');
+                successMessage.style.display = 'block';
+                setTimeout(() => {
                     const nextButton = successMessage.querySelector('.next-button');
                     nextButton.style.display = 'inline-block';
                     nextButton.style.animation = 'fadeIn 0.5s ease-in-out';
-                }
-            });
-        });
-
-        // Add feedback handling functions
-        async function submitFeedback(rating) {
-            const phone = localStorage.getItem('auth_phone') || 'unknown';
-            const authName = localStorage.getItem('auth_name');
-            const userId = localStorage.getItem('auth_userId');
-            
-            // Check if feedback already exists
-            const db = firebase.firestore();
-            const userQuery = await db.collection('userProgress')
-                .where('phone', '==', phone)
-                .limit(1)
-                .get();
-            if (!userQuery.empty) {
-                const userDoc = userQuery.docs[0];
-                const userData = userDoc.data();
-                if (userData.soccer_episode1Feedback) {
-                    // Feedback already exists, just show thank you and navigation
-                    showFeedbackUI();
-                    return;
-                }
+                }, 500);
             }
-            
-            // Immediately show thank you UI
-            showFeedbackUI();
-            
-            try {
-                // Save feedback and completion in userProgress
-                await markSoccerEpisodeCompleted(1, rating);
-                // Track in LogRocket
-                if (window.LogRocket) {
-                    LogRocket.track('Soccer Paw Episode 1 Completed', {
-                        rating: rating,
-                        userPhone: phone,
-                        completedAt: new Date().toISOString(),
-                        userId: userId
-                    });
-                }
-            } catch (error) {
-                console.error('Error saving Soccer Paw feedback and progress:', error);
-                if (window.LogRocket) {
-                    LogRocket.track('Soccer Paw Episode 1 Feedback Error', {
-                        error: error.message,
-                        userPhone: phone,
-                        rating: rating
-                    });
-                }
-            }
-        }
 
-        function showFeedbackUI() {
-            // Hide emoji options
-            document.querySelector('.emoji-options').style.display = 'none';
-            
-            // Show thank you message
-            document.getElementById('thankYouMessage').style.display = 'flex';
-            
-            // Show success message immediately
-            const successMessage = document.getElementById('successMessage');
-            successMessage.style.display = 'block';
-            
-            // Show the next button after a short delay
-            setTimeout(() => {
+            window.completeSoccerEpisode1AndReturn = function() {
+                // Mark episode as completed in localStorage
+                localStorage.setItem('soccer_episode1Completed', 'true');
+                window.location.href = '../sccoker.html';
+            };
+
+            // On DOMContentLoaded, check if feedback exists and update UI accordingly
+            if (localStorage.getItem('soccer_episode1Feedback')) {
+                document.querySelector('.emoji-options').style.display = 'none';
+                document.getElementById('thankYouMessage').style.display = 'flex';
+                const successMessage = document.getElementById('successMessage');
+                successMessage.style.display = 'block';
                 const nextButton = successMessage.querySelector('.next-button');
                 nextButton.style.display = 'inline-block';
                 nextButton.style.animation = 'fadeIn 0.5s ease-in-out';
-            }, 500);
-            
-            markSoccerEpisodeCompleted(1);
-        }
-
-        async function completeSoccerEpisode1AndReturn() {
-            // Try to call the parent function if in iframe
-            if (window.parent && typeof window.parent.markSoccerEpisodeCompleted === 'function') {
-                window.parent.markSoccerEpisodeCompleted(1);
-            } else if (window.parent) {
-                // If in iframe but function not directly available, use postMessage
-                window.parent.postMessage({ type: 'SOCCER_EPISODE_COMPLETED', episode: 1 }, '*');
-            } else if (typeof markSoccerEpisodeCompleted === 'function') {
-                // If not in iframe, call directly
-                markSoccerEpisodeCompleted(1);
             }
-            // Now return to episode selection
-            window.location.href = '../sccoker.html';
-        }
-
-        async function markSoccerEpisodeCompleted(episodeNumber, feedbackRating = null) {
-            try {
-                const phone = localStorage.getItem('auth_phone');
-                if (!phone) return;
-                const db = firebase.firestore();
-                const userQuery = await db.collection('userProgress')
-                    .where('phone', '==', phone)
-                    .limit(1)
-                    .get();
-                if (!userQuery.empty) {
-                    const userDoc = userQuery.docs[0];
-                    const userData = userDoc.data();
-                    const completedEpisodes = userData.soccer_completedEpisodes || [];
-                    const updateData = {};
-                    updateData[`soccer_episode${episodeNumber}CompletedAt`] = firebase.firestore.Timestamp.fromDate(new Date());
-                    if (!completedEpisodes.includes(episodeNumber)) {
-                        updateData.soccer_completedEpisodes = [...completedEpisodes, episodeNumber];
-                    }
-                    if (feedbackRating) {
-                        updateData[`soccer_episode${episodeNumber}Feedback`] = {
-                            rating: feedbackRating,
-                            timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-                            submittedAt: new Date().toISOString()
-                        };
-                    }
-                    await userDoc.ref.update(updateData);
-                } else {
-                    // If no user doc, create one
-                    const newDoc = {
-                        phone,
-                        [`soccer_episode${episodeNumber}CompletedAt`]: firebase.firestore.Timestamp.fromDate(new Date()),
-                        soccer_completedEpisodes: [episodeNumber]
-                    };
-                    if (feedbackRating) {
-                        newDoc[`soccer_episode${episodeNumber}Feedback`] = {
-                            rating: feedbackRating,
-                            timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-                            submittedAt: new Date().toISOString()
-                        };
-                    }
-                    await db.collection('userProgress').add(newDoc);
-                }
-            } catch (error) {
-                console.error('Error marking soccer episode as completed:', error);
-            }
-        }
+        });
     </script>
     <script src="../disable-search.js"></script>
 </body>
